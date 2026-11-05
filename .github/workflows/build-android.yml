@@ -1,0 +1,36 @@
+name: Compilar APK de Android
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ordenar archivos en carpetas
+        run: |
+          mkdir -p www scripts
+          if [ -f index.html ]; then mv index.html www/index.html; fi
+          for f in prepare-web.js android-patch.sh make_icons.py ios-patch.py; do
+            if [ -f "$f" ]; then mv "$f" scripts/; fi
+          done
+          ls -R www scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: pip install pillow
+      - run: npm install
+      - run: npm run prepare-web
+      - run: npx cap add android
+      - run: bash scripts/android-patch.sh
+      - run: npx cap sync android
+      - run: chmod +x android/gradlew && cd android && ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChickenWar-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
